@@ -1,0 +1,149 @@
+---
+title: "Total LPP Marks"
+author: "Eugene"
+date: 
+output: pdf_document
+fontsize: 11pt
+#classoption: landscape
+---
+
+\LARGE
+These are the LPP Results (`r format(Sys.Date(), "%A %d %B %Y")`). Skillpads are now closed. Total.CA is the mean of the 8 weekly moodle quizzes.  
+\par  
+
+     
+
+```{r echo=F, message=F, warning=F}
+setwd("C:/Academic/Science1/LPP/2016/Grades")
+library(reshape2)
+library(plyr)
+library(dplyr)
+library(knitr)
+library(xtable)
+```
+
+
+```{r echo=F, messages=F, warnings=F}
+df = read.csv2("LPP Grades1.csv", sep=",")
+df = df[,c("First.name", "Surname", "ID.number", 
+           "Quiz..01.Introductory.Exercise",
+           "Quiz..02.Units...Measurement",
+           "Quiz..03.MSDS.for.Benzoic.Acid", 
+           "Quiz..04a.Moles...Molarity", 
+           "Quiz..04b.Chemcollective.Moles", 
+           "Quiz..05.Dilutions", 
+           "Quiz..06.Concentrations",
+           "Quiz..07.Measurement" , 
+           "Quiz..Exam.1..Pharma...Tuesday.November.29th.2016", 
+           "Quiz..Exam.2...Pharma.Tuesday.December.6th.2016")]
+
+names = c("First Name", "Surname", "StudentID", 
+          "Intro", "Units", "MSDS", "Moles", 
+          "ChemCol", "Dil", "Conc.", "Meas", "Test1", "Test2")
+
+names(df) = names
+
+df[df=='-'] = NA
+
+for(n in 4:13){
+  df[,n] = as.numeric(as.character((df[,n])))
+}
+
+df[is.na(df)] = 0
+df = mutate(df, Total.CA=(Intro+Units+MSDS+Moles+ChemCol+Dil+Conc.+Meas)/8)
+
+```
+
+```{r echo=F, essages=F}
+#set directory, read in data
+sp = read.csv2("skillpad.csv", sep=",")
+
+#select just important columns
+sp = sp[,c(2, 3, 4, 7, 9, 11)]
+
+#set up a new frame to count completed lessons
+sp1 = filter(sp, Lesson.Completed =="YES")
+sp1 = sp1[, c(3,5)]
+sp1 = table(sp1)
+sp1 = as.data.frame(sp1)
+sp1 = filter(sp1, Lesson.Completed == "YES")
+sp1 = sp1[order(sp1$Username),]
+
+#put sp in wide format, replace Na with "NO", add on number of completed lessons
+sp = dcast(sp, Firstname+Lastname+Username~Lesson, value.var="Lesson.Completed")
+sp[is.na(sp)] = "NO"
+sp = sp[order(sp$Username),]
+sp = cbind(sp, sp1$Freq)
+
+#reorder and rename columns
+sp = sp[,c(1:3, 20, 4:19)]
+names = c("Firstname","Lastname", "Username", "Skillpad",
+          "500-01", "501-01", "502-01", "305-01", "306-01", 
+          "307-01", "314-01", "700-01", "710-01", "720-01", 
+          "721-01", "730-01", "740-01", "741-01", "760-01", "761-01")
+colnames(sp)= names
+
+#order alphabetically
+sp = sp[with(sp, order(Lastname, Firstname)),]
+
+#merge skillpad and moodle quiz data
+LPP.merge = merge(x=df, y=sp, by.x='StudentID', by.y='Username')
+LPP.merge = LPP.merge[, c('StudentID', 'First Name', 'Surname', 
+                          'Test1', 'Test2', 'Total.CA', 'Skillpad')]
+LPP.merge = mutate(LPP.merge, 
+                   Final.Mark=(Test1 + Test2 + 
+                                 2*Total.CA + Skillpad*100/16)*0.2)
+#read in class data
+DNAF = read.csv2("DNAF.csv", sep=",")
+PHARMA = read.csv2("PHARMA.csv", sep=",")
+BIO = read.csv2("BIO.csv", sep=",")
+
+#order by names
+LPP.merge = LPP.merge[with(LPP.merge, order(Surname)),]
+
+#round numbers
+LPP.merge$Total.CA = round(LPP.merge$Total.CA, 1)
+LPP.merge$Final.Mark = round(LPP.merge$Final.Mark, 1)
+LPP.merge$Test2 = round(LPP.merge$Test2, 1)
+
+#remove names
+#LPP.merge = LPP.merge[,-c(2,3)]
+LPP.merge = LPP.merge[,c(1,2,3,8,4,5,6,7)]
+
+#sort by class
+data.pharma = filter(LPP.merge, LPP.merge$StudentID %in% PHARMA$StudentID)
+data.bio = filter(LPP.merge, LPP.merge$StudentID %in% BIO$StudentID)
+data.dnaf = filter(LPP.merge, LPP.merge$StudentID %in% DNAF$StudentID)
+
+```
+
+\LARGE
+***Forensics Marks***
+\large
+```{r echo=F, results = "asis"}
+
+kable(data.dnaf)
+
+```
+
+
+\newpage
+
+\LARGE
+***Pharmaceutical Marks***
+\large
+
+```{r echo=F}
+kable(data.pharma)
+
+```
+
+\newpage
+
+\LARGE
+***Bioanalysis Marks***
+\large
+```{r echo=F}
+kable(data.bio)
+
+```

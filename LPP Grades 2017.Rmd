@@ -1,0 +1,102 @@
+---
+title: "LPP Results"
+author: "Eugene"
+date: 
+output: pdf_document
+fontsize: 11pt
+#classoption: landscape
+---
+
+These are the LPP Results in quizzes and skillpads as of `r format(Sys.Date(), "%A %d %B %Y")`.
+
+\small
+
+```{r echo=F, message=F, warning=F}
+setwd("C:/Academic/Science1/LPP/2017/Grades")
+library(plyr)
+library(dplyr)
+library(knitr)
+library(tidyr)
+
+data = read.csv2("LPP Grades.csv", sep=",")
+data = data[,-c(4,5,6)]
+
+DNAF = read.csv2("DNAF.csv", sep=",")
+PHARMA = read.csv2("PHARMA.csv", sep=",")
+BIO = read.csv2("BIO.csv", sep=",")
+```
+
+```{r echo=F, message=F, warning=F}
+sp = read.csv2("skillpad.csv", sep=",")
+
+#select just important columns
+sp = sp[,c(2, 3, 4, 7, 9, 11)]
+
+#set up a new frame to count completed lessons
+sp[is.na(sp)] = 0
+sp1 = sp[, c(3,4,6)]
+sp2 = spread(sp1, Lesson, BestAttempt)
+sp3=apply(sp2, 2, as.numeric)
+sp3 = as.data.frame(sp3)
+sp3$Username = sp2$Username
+sp4 = rowSums(sp3[,-1], na.rm = T)
+sp4 = round(sp4/16,1)
+sp4 = as.data.frame(sp4)
+colnames(sp4) = "Skillpad"
+sp4$Username = sp3$Username
+
+#merge skillpad and moodle quiz data
+data = merge(x=data, y=sp4, by.x='ID.number', by.y='Username')
+data=data[,!names(data) %in% c("Lesson.Completed")]
+```
+
+```{r echo=F, message=F, warning=F}
+n2 = c("StudentID", "First.Name", "Surname","01 Intro", "02 Units", "03 MSDS", "04a Moles", "04b CCol", "05 Dil", "06 Conc", "07 Meas.", "Exam1", "Skillpad")
+
+n1=c("ID.number", "First.name", "Surname", "Quiz..01.Introductory.Exercise..Real.", "Quiz..02.Units...Measurement..Real.", "Quiz..03.MSDS.for.Benzoic.Acid..Real.", "Quiz..04a.Moles...Molarity..Real.", "Quiz..04b.Chemcollective.Moles..Real.", "Quiz..05.Dilutions..Real.", "Quiz..06.Concentrations..Real.", "Quiz..07.Measurement..Real.", "Quiz..Exam.1..Real.", "Skillpad")
+data = data[,n1]
+
+names(data) = n2
+
+data[,10] = as.numeric(as.character(data[,10]))
+index = !is.na(data[,10])
+data[,10]=round(data[,10],0)
+data[!index,10] = "-"
+
+data.pharma = filter(data, data$StudentID %in% PHARMA$StudentID)
+data.bio = filter(data, data$StudentID %in% BIO$StudentID)
+data.dnaf = filter(data, data$StudentID %in% DNAF$StudentID)
+
+data.pharma = data.pharma[,!names(data.pharma) %in% c("First.Name", "Surname")]
+data.bio = data.bio[,!names(data.bio) %in% c("First.Name", "Surname")]
+data.dnaf = data.dnaf[,!names(data.dnaf) %in% c("First.Name", "Surname")]
+outindex = c(1,2,3,4,5,11)
+
+```
+
+###Biology Marks
+
+```{r echo=F}
+kable(data.bio[,outindex])
+
+```
+
+\newpage
+
+###Forensics Marks
+
+```{r echo=F}
+kable(data.dnaf[,outindex])
+
+```
+
+\newpage
+
+###Pharmaceutical Science Marks
+
+```{r echo=F}
+kable(data.pharma[,outindex])
+
+```
+
+
